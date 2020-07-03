@@ -40,15 +40,15 @@ type Item struct {
 	Type        string
 	Description string
 	Properties  interface{} `yaml:",omitempty"`
-	Items       interface{}         `yaml:",omitempty"`
+	Items       interface{} `yaml:",omitempty"`
 }
 
 type Property struct {
 	Type                 string
 	Description          string
-	AdditionalProperties interface{}         `yaml:"additionalProperties,omitempty"`
+	AdditionalProperties interface{} `yaml:"additionalProperties,omitempty"`
 	Properties           interface{} `yaml:",omitempty"` // nesting
-	Items                interface{}         `yaml:",omitempty"`
+	Items                interface{} `yaml:",omitempty"`
 }
 
 type Request struct {
@@ -83,24 +83,24 @@ type openapi struct {
 }
 
 var oasTypeMap = map[string]string{
-	"bool":   "boolean",
-	"string": "string",
-	"slice":  "array",
-	"byte": "integer",
-	"rune": "integer",
-	"int": "integer",
-	"int8": "integer",
-	"int16": "integer",
-	"int32": "integer",
-	"int64": "integer",
-	"uint": "integer",
-	"uint8": "integer",
-	"uint16": "integer",
-	"uint32": "integer",
-	"uint64": "integer",
-	"float32": "number",
-	"float64": "number",
-	"complex64": "number",
+	"bool":       "boolean",
+	"string":     "string",
+	"slice":      "array",
+	"byte":       "integer",
+	"rune":       "integer",
+	"int":        "integer",
+	"int8":       "integer",
+	"int16":      "integer",
+	"int32":      "integer",
+	"int64":      "integer",
+	"uint":       "integer",
+	"uint8":      "integer",
+	"uint16":     "integer",
+	"uint32":     "integer",
+	"uint64":     "integer",
+	"float32":    "number",
+	"float64":    "number",
+	"complex64":  "number",
 	"complex128": "number",
 }
 
@@ -140,7 +140,7 @@ func convertStructFieldToOasField(f reflect.StructField) (r string) {
 	return toSnakeCase(r)
 }
 
-func goSliceToOas(i interface{}) (interface{}) {
+func goSliceToOas(i interface{}) interface{} {
 	s := reflect.TypeOf(i)
 
 	elem := s.Elem()
@@ -153,7 +153,7 @@ func goSliceToOas(i interface{}) (interface{}) {
 	return item
 }
 
-func goStructToOas(i interface{}) (interface{}) {
+func goStructToOas(i interface{}) interface{} {
 	s := reflect.TypeOf(i)
 	v := reflect.ValueOf(i)
 
@@ -212,16 +212,16 @@ func goToOas(i interface{}) (r interface{}) {
 	t := reflect.TypeOf(i)
 
 	switch t.Kind() {
-		/*
-		FIXME following types is not handled in any way
-		Invalid Kind = iota
-    Array
-    Chan
-    Func
-    Interface
-    Ptr
-    UnsafePointer
-		*/
+	/*
+			FIXME following types is not handled in any way
+			Invalid Kind = iota
+	    Array
+	    Chan
+	    Func
+	    Interface
+	    Ptr
+	    UnsafePointer
+	*/
 	case reflect.Slice:
 		return goSliceToOas(i)
 	case reflect.Struct:
@@ -230,10 +230,10 @@ func goToOas(i interface{}) (r interface{}) {
 		return goMapToOas(i)
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-			 reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-			 reflect.Float32, reflect.Float64,
-			 reflect.Complex64, reflect.Complex128,
-			 reflect.Bool, reflect.String:
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64,
+		reflect.Complex64, reflect.Complex128,
+		reflect.Bool, reflect.String:
 		return goPrimitiveToOas(t.Kind().String(), i)
 
 	default:
@@ -268,7 +268,6 @@ func ToOasModel(apiModel api.Api) {
 				},
 			}
 		}
-
 
 		responses := make(map[int]Response)
 		for _, r := range p.Responses {

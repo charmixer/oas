@@ -12,11 +12,11 @@ const (
 
 type Api struct {
 	// Info Info
-	Title string
-	Summary string
+	Title       string
+	Summary     string
 	Description string
-	Version string
-	Paths []Path
+	Version     string
+	Paths       []Path
 }
 
 type ParamSchema struct {
