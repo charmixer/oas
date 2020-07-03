@@ -211,16 +211,20 @@ func goToOas(i interface{}) (r interface{}) {
 
 	t := reflect.TypeOf(i)
 
+	if t == nil {
+		return r
+	}
+
 	switch t.Kind() {
 	/*
-			FIXME following types is not handled in any way
-			Invalid Kind = iota
-	    Array
-	    Chan
-	    Func
-	    Interface
-	    Ptr
-	    UnsafePointer
+				FIXME following types is not handled in any way
+				Invalid Kind = iota
+		    Array
+		    Chan
+		    Func
+		    Interface
+		    Ptr
+		    UnsafePointer
 	*/
 	case reflect.Slice:
 		return goSliceToOas(i)
@@ -282,7 +286,9 @@ func ToOasModel(apiModel api.Api) {
 		}
 		path.Responses = responses
 
-		oas.Paths[p.Url] = make(map[string]Path)
+		if _, ok := oas.Paths[p.Url]; !ok {
+			oas.Paths[p.Url] = make(map[string]Path)
+		}
 		oas.Paths[p.Url][strings.ToLower(p.Method)] = path
 	}
 
