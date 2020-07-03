@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"fmt"
 	"github.com/charmixer/oas/api"
 	"gopkg.in/yaml.v2"
 	"reflect"
@@ -72,7 +71,7 @@ type Path struct {
 	Responses   map[int]Response
 }
 
-type openapi struct {
+type Openapi struct {
 	Openapi string
 	Info    struct {
 		Title       string
@@ -246,9 +245,7 @@ func goToOas(i interface{}) (r interface{}) {
 
 }
 
-func ToOasModel(apiModel api.Api) {
-	var oas openapi
-
+func ToOasModel(apiModel api.Api) (oas Openapi) {
 	oas.Openapi = "3.0.3"
 	oas.Info.Title = apiModel.Title
 	oas.Info.Description = apiModel.Description
@@ -292,14 +289,13 @@ func ToOasModel(apiModel api.Api) {
 		oas.Paths[p.Url][strings.ToLower(p.Method)] = path
 	}
 
-	d, err := yaml.Marshal(&oas)
-	if err != nil {
-		fmt.Printf("error: %v", err)
-	}
-	fmt.Printf("--- m dump:\n%s\n\n", string(d))
-
+	return oas
 }
 
-func ToYaml() {
-
+func ToYaml(oas Openapi) (string, error){
+	d, err := yaml.Marshal(&oas)
+	if err != nil {
+		return "", err
+	}
+	return string(d), nil
 }
