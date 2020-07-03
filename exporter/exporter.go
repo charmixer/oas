@@ -114,6 +114,7 @@ func toSnakeCase(str string) string {
 
 // convertStructFieldToOas is used to figure out which name to use by reading field tags
 func convertStructFieldToOasField(f reflect.StructField) (r string) {
+	// FIXME currently hardcoded json
 	t := api.CONTENT_TYPE_JSON
 	r = f.Name
 	switch t {
@@ -143,7 +144,6 @@ func goSliceToOas(i interface{}) (interface{}) {
 	s := reflect.TypeOf(i)
 
 	elem := s.Elem()
-	//kind := elem.Kind()
 
 	oas := goToOas(reflect.Zero(elem).Interface())
 
@@ -151,31 +151,6 @@ func goSliceToOas(i interface{}) (interface{}) {
 	item.Type = "array"
 	item.Items = oas
 	return item
-/*
-	if kind == reflect.Slice {
-		oas := goToOas(reflect.Zero(elem).Interface())
-
-		item := Item{}
-		item.Type = "array"
-		item.Items = oas
-		return item
-	} else if kind == reflect.Struct {
-		oas := goToOas(reflect.Zero(elem).Interface())
-
-		prop := Item{}
-		prop.Type = "array"
-		prop.Items = oas
-		return prop
-	} else {
-		oas := goToOas(reflect.Zero(s.Elem()).Interface())
-		//oasType := oasTypeMap[kind.String()]
-		item := Item{}
-		item.Type = "array"
-		item.Items = oas
-		return item
-	}
-*/
-	// TODO get description from tag
 }
 
 func goStructToOas(i interface{}) (interface{}) {
@@ -192,19 +167,9 @@ func goStructToOas(i interface{}) (interface{}) {
 
 		oas := goToOas(value.Interface())
 		p[oasFieldName] = oas
-/*
-		_oasType := reflect.TypeOf(oas)
-
-		_goPropType := reflect.TypeOf(Property{})
-		_goItemsType := reflect.TypeOf(Item{})
-
-		if _oasType == _goPropType {
-			p[oasFieldName] = oas
-		} else if _oasType == _goItemsType {
-			p[oasFieldName] = oas
-		}
-*/
 	}
+
+	// TODO get description from tags
 
 	return Property{
 		Type:        "object",
@@ -217,33 +182,10 @@ func goMapToOas(i interface{}) (p Property) {
 	s := reflect.TypeOf(i)
 
 	elem := s.Elem()
-	//kind := elem.Kind()
 
 	oas := goToOas(reflect.Zero(elem).Interface())
 	p.Type = "object"
 	p.AdditionalProperties = oas
-
-	/*
-	if kind == reflect.Slice {
-		oas := goToOas(reflect.Zero(elem).Interface())
-
-		oasType := oasTypeMap[kind.String()]
-
-		p.Type = oasType
-		p.Items = oas.(Item)
-	} else if kind == reflect.Struct {
-		oas := goToOas(reflect.Zero(elem).Interface())
-
-		p.Type = "object"
-		p.AdditionalProperties = oas.(Property)
-	} else {
-		// oas := goToOas(reflect.Zero(s.Elem()).Interface())
-		oasType := oasTypeMap[kind.String()]
-		p.Type = "object"
-		p.AdditionalProperties = Property{
-			Type: oasType,
-		}
-	}*/
 
 	// TODO get description from tag
 
@@ -271,6 +213,7 @@ func goToOas(i interface{}) (r interface{}) {
 
 	switch t.Kind() {
 		/*
+		FIXME following types is not handled in any way
 		Invalid Kind = iota
     Array
     Chan
@@ -302,10 +245,10 @@ func goToOas(i interface{}) (r interface{}) {
 func ToOasModel(apiModel api.Api) {
 	var oas openapi
 
-	oas.Openapi = "3.0.0"
-	oas.Info.Title = "Test API"
-	oas.Info.Description = "My API Description"
-	oas.Info.Version = "0.0.0"
+	oas.Openapi = "3.0.3"
+	oas.Info.Title = apiModel.Title
+	oas.Info.Description = apiModel.Description
+	oas.Info.Version = apiModel.Version
 
 	oas.Paths = make(map[string]map[string]Path)
 	for _, p := range apiModel.GetPaths() {

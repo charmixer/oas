@@ -12,6 +12,10 @@ const (
 
 type Api struct {
 	// Info Info
+	Title string
+	Summary string
+	Description string
+	Version string
 	Paths []Path
 }
 
