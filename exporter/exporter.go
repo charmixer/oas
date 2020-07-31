@@ -7,34 +7,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"fmt"
 )
-
-/*
-	openapi: 3.0.0
-	info:
-		title: Sample API
-		description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
-		version: 0.1.9
-	servers:
-		- url: http://api.example.com/v1
-			description: Optional server description, e.g. Main (production) server
-		- url: http://staging-api.example.com
-			description: Optional server description, e.g. Internal staging server for testing
-	paths:
-		/users:
-			get:
-				summary: Returns a list of users.
-				description: Optional extended description in CommonMark or HTML.
-				responses:
-					'200':    # status code
-						description: A JSON array of user names
-						content:
-							application/json:
-								schema:
-									type: array
-									items:
-										type: string
-*/
 
 type Item struct {
 	Type        string
@@ -182,26 +156,27 @@ func goStructToOas(i interface{}) interface{} {
 		oasFieldName := convertStructFieldToOasField(field)
 
 		oas, _ := goToOas(value.Interface())
-/*
-		if kind != reflect.Slice && kind != reflect.Struct {
-			oasStruct := reflect.ValueOf(oas)
-			descField := oasStruct.FieldByName("Description")
-
-			fmt.Printf("CanSet: %t CanAddr: %t IsValid: %t %#v\n", descField.CanSet(), descField.CanAddr(), descField.IsValid(), descField)
-			if descField.CanSet() {
-				fmt.Println("IM HERE")
-				descField.SetString("Testing description")
-			}
+		switch t := oas.(type) {
+			case Property:
+				prop := oas.(Property)
+				prop.Description = field.Tag.Get("oas")// "Testing item Description"
+				oas = prop
+			case Item:
+				item := oas.(Item)
+				item.Description = field.Tag.Get("oas")// "Testing item Description"
+				oas = item
+			default:
+				var r = reflect.TypeOf(t)
+				panic(fmt.Sprintf("Unhandled type '%v' from goToOas func", r))
 		}
-*/
 		p[oasFieldName] = oas
 	}
 
-	// TODO get description from tags
+	// TODO get description from tags - how to describe outer struct?
 
 	return Property{
 		Type:        "object",
-		Description: "",
+		Description: s.Name() + " object",
 		Properties:  p,
 	}
 }
@@ -231,7 +206,7 @@ func goPrimitiveToOas(k string, i interface{}) Property {
 
 	return Property{
 		Type:        kind,
-		Description: "ssda",
+		Description: "",
 	}
 }
 
