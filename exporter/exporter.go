@@ -3,6 +3,7 @@ package exporter
 import (
 	"github.com/charmixer/oas/api"
 	"gopkg.in/yaml.v2"
+	"encoding/json"
 	"reflect"
 	"regexp"
 	"strings"
@@ -38,36 +39,52 @@ import (
 type Item struct {
 	Type        string
 	Description string
-	Properties  interface{} `yaml:",omitempty"`
-	Items       interface{} `yaml:",omitempty"`
+	Properties  interface{} `yaml:",omitempty" json:",omitempty"`
+	Items       interface{} `yaml:",omitempty" json:",omitempty"`
 }
 
 type Property struct {
 	Type                 string
 	Description          string
-	AdditionalProperties interface{} `yaml:"additionalProperties,omitempty"`
-	Properties           interface{} `yaml:",omitempty"` // nesting
-	Items                interface{} `yaml:",omitempty"`
+	AdditionalProperties interface{} `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`
+	Properties           interface{} `yaml:",omitempty" json:",omitempty"` // nesting
+	Items                interface{} `yaml:",omitempty" json:",omitempty"`
+}
+
+type Content map[string]struct {
+	Schema interface{} `yaml:"schema,omitempty"`
 }
 
 type Request struct {
 	Description string
-	Content     map[string]struct {
-		Schema interface{} // Schema
-	}
+	Content     Content `yaml:",omitempty" json:",omitempty"`
 }
 
 type Response struct {
 	Description string
-	Content     map[string]struct {
-		Schema interface{} // Schema
-	}
+	Content     Content `yaml:",omitempty" json:",omitempty"`
+}
+
+type Param struct {
+	In					string
+	Name        string
+	Description string
+	Required    bool
+	Content     Content `yaml:",omitempty" json:",omitempty"`
+	Schema      interface{} `yaml:",omitempty" json:",omitempty"`
+}
+
+type Tag struct {
+	Name string
+	Description string
 }
 
 type Path struct {
 	Summary     string
 	Description string
-	Request     Request `yaml:"requestBody,omitempty"`
+	Tags			  []string
+	Parameters  []Param `yaml:",omitempty" json:",omitempty"`
+	Request     Request `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
 	Responses   map[int]Response
 }
 
@@ -144,7 +161,7 @@ func goSliceToOas(i interface{}) interface{} {
 
 	elem := s.Elem()
 
-	oas := goToOas(reflect.Zero(elem).Interface())
+	oas, _ := goToOas(reflect.Zero(elem).Interface())
 
 	item := Item{}
 	item.Type = "array"
@@ -164,7 +181,19 @@ func goStructToOas(i interface{}) interface{} {
 
 		oasFieldName := convertStructFieldToOasField(field)
 
-		oas := goToOas(value.Interface())
+		oas, _ := goToOas(value.Interface())
+/*
+		if kind != reflect.Slice && kind != reflect.Struct {
+			oasStruct := reflect.ValueOf(oas)
+			descField := oasStruct.FieldByName("Description")
+
+			fmt.Printf("CanSet: %t CanAddr: %t IsValid: %t %#v\n", descField.CanSet(), descField.CanAddr(), descField.IsValid(), descField)
+			if descField.CanSet() {
+				fmt.Println("IM HERE")
+				descField.SetString("Testing description")
+			}
+		}
+*/
 		p[oasFieldName] = oas
 	}
 
@@ -182,7 +211,7 @@ func goMapToOas(i interface{}) (p Property) {
 
 	elem := s.Elem()
 
-	oas := goToOas(reflect.Zero(elem).Interface())
+	oas, _ := goToOas(reflect.Zero(elem).Interface())
 	p.Type = "object"
 	p.AdditionalProperties = oas
 
@@ -202,16 +231,16 @@ func goPrimitiveToOas(k string, i interface{}) Property {
 
 	return Property{
 		Type:        kind,
-		Description: "",
+		Description: "ssda",
 	}
 }
 
-func goToOas(i interface{}) (r interface{}) {
+func goToOas(i interface{}) (r interface{}, kind reflect.Kind) {
 
 	t := reflect.TypeOf(i)
 
 	if t == nil {
-		return r
+		return r, kind
 	}
 
 	switch t.Kind() {
@@ -226,23 +255,85 @@ func goToOas(i interface{}) (r interface{}) {
 		    UnsafePointer
 	*/
 	case reflect.Slice:
-		return goSliceToOas(i)
+		return goSliceToOas(i), t.Kind()
 	case reflect.Struct:
-		return goStructToOas(i)
+		return goStructToOas(i), t.Kind()
 	case reflect.Map:
-		return goMapToOas(i)
+		return goMapToOas(i), t.Kind()
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64,
 		reflect.Complex64, reflect.Complex128,
 		reflect.Bool, reflect.String:
-		return goPrimitiveToOas(t.Kind().String(), i)
+		return goPrimitiveToOas(t.Kind().String(), i), t.Kind()
 
 	default:
 		panic("unknown type " + t.Kind().String())
 	}
 
+}
+
+func goToOasParameters(i interface{}) (params []Param) {
+	typeOf := reflect.TypeOf(i)
+	valueOf := reflect.ValueOf(i)
+
+	if typeOf == nil {
+		return params
+	}
+
+	if typeOf.Kind() != reflect.Struct {
+		panic("Only a struct can be parsed into parameters, "+typeOf.Kind().String()+" ("+typeOf.Name()+") given")
+	}
+
+	for i := 0; i < valueOf.NumField(); i++ {
+		f := valueOf.Field(i)
+		t := typeOf.Field(i)
+
+		//fmt.Printf("=== %#v \n", f)
+
+		tags := make(map[string]string, 3)
+
+		query := t.Tag.Get("query")
+		if query != "" && query != "-" {
+			tags["query"] = query
+		}
+
+		header := t.Tag.Get("header")
+		if header != "" && header != "-" {
+			tags["header"] = header
+		}
+
+		cookie := t.Tag.Get("cookie")
+		if cookie != "" && cookie != "-" {
+			tags["cookie"] = cookie
+		}
+
+		description := t.Tag.Get("oas")
+
+		for in, name := range tags {
+			param := Param{
+				In: in,
+				Name: name,
+				Description: description,
+			}
+
+			schema, kind := goToOas(f.Interface())
+
+			// controlled by result of gotooas
+			if kind == reflect.Struct || kind == reflect.Map {
+				param.Content = Content{
+					"application/json": {Schema: schema}, // FIXME content type
+				}
+			} else {
+				param.Schema = schema
+			}
+
+			params = append(params, param)
+		}
+	}
+
+	return params
 }
 
 func ToOasModel(apiModel api.Api) (oas Openapi) {
@@ -260,28 +351,44 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 		}
 
 		if strings.ToLower(p.Method) != "get" {
+			contentType := api.CONTENT_TYPE_JSON
+			if p.Request.ContentType != "" {
+				contentType = p.Request.ContentType
+			}
+
+			schema, _ := goToOas(p.Request.Schema)
+
 			path.Request = Request{
 				Description: p.Request.Description,
-				Content: map[string]struct {
-					Schema interface{}
-				}{
-					api.CONTENT_TYPE_JSON: {Schema: goToOas(p.Request.Schema)},
+				Content: Content{
+					contentType: {Schema: schema},
 				},
 			}
 		}
 
+		path.Parameters = goToOasParameters(p.Request.Params)
+
 		responses := make(map[int]Response)
 		for _, r := range p.Responses {
+			contentType := api.CONTENT_TYPE_JSON
+			if r.ContentType != "" {
+				contentType = r.ContentType
+			}
+
+			schema, _ := goToOas(r.Schema)
+
 			responses[r.Code] = Response{
 				Description: r.Description,
-				Content: map[string]struct {
-					Schema interface{}
-				}{
-					api.CONTENT_TYPE_JSON: {Schema: goToOas(r.Schema)},
+				Content: Content{
+					contentType: {Schema: schema},
 				},
 			}
 		}
 		path.Responses = responses
+
+		for _, t := range p.Tags {
+			path.Tags = append(path.Tags, t.Name)
+		}
 
 		if _, ok := oas.Paths[p.Url]; !ok {
 			oas.Paths[p.Url] = make(map[string]Path)
@@ -294,6 +401,14 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 
 func ToYaml(oas Openapi) (string, error){
 	d, err := yaml.Marshal(&oas)
+	if err != nil {
+		return "", err
+	}
+	return string(d), nil
+}
+
+func ToJson(oas Openapi) (string, error){
+	d, err := json.Marshal(&oas)
 	if err != nil {
 		return "", err
 	}

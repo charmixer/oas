@@ -8,6 +8,7 @@ const (
 	CONTENT_TYPE_JSON string = "application/json"
 	CONTENT_TYPE_XML  string = "application/xml"
 	CONTENT_TYPE_TEXT string = "text/plain"
+	CONTENT_TYPE_HTML string = "text/html"
 )
 
 type Api struct {
@@ -19,28 +20,31 @@ type Api struct {
 	Paths       []Path
 }
 
-type ParamSchema struct {
-	Type   string
-	Format string
-}
-
 type Param struct {
+	In					string
 	Name        string
 	Description string
 	Required    bool
-	Schema      ParamSchema
+	ContentType	string
+	Schema      interface{}
 }
 
 type Request struct {
 	Description string
 	Required    bool
+	ContentType	string
 	Schema      interface{}
+/*	Query				interface{}
+	Header			interface{}
+	Cookie			interface{}*/
+	Params      interface{}
 }
 
 type Response struct {
 	Description string
 	Required    bool
 	Code        int
+	ContentType	string
 	Schema      interface{}
 }
 
@@ -49,13 +53,20 @@ type Path struct {
 	Description string
 	Url         string
 	Method      string
+	Tags				[]Tag
 	Handler     http.HandlerFunc
-	Path        []Param
+	//Params      []Param
 	Request     Request
 	Responses   []Response
 }
 
-func (api *Api) NewPath(method string, url string, handler http.HandlerFunc, path Path) {
+type Tag struct {
+	Name string
+	Description string
+}
+
+func (api *Api) NewPath(method string, url string, handler http.HandlerFunc, path Path, tags []Tag) {
+	path.Tags = tags
 	path.Method = method
 	path.Url = url
 	path.Handler = handler
