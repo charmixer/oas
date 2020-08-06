@@ -2,74 +2,78 @@ package exporter
 
 import (
 	"github.com/charmixer/oas/api"
-	"gopkg.in/yaml.v2"
+	//"gopkg.in/yaml.v2"
+	yaml "github.com/ghodss/yaml"
 	"encoding/json"
 	"reflect"
-	"regexp"
 	"strings"
 	"fmt"
 )
 
 type Item struct {
-	Type        string
-	Description string
-	Properties  interface{} `yaml:",omitempty" json:",omitempty"`
-	Items       interface{} `yaml:",omitempty" json:",omitempty"`
+	Type        string `yaml:"type" json:"type"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Properties  interface{} `yaml:"properties,omitempty" json:"properties,omitempty"`
+	Items       interface{} `yaml:"items,omitempty" json:"items,omitempty"`
+	//Example	  	interface{} `yaml:",omitempty" json:",omitempty"`
 }
 
 type Property struct {
-	Type                 string
-	Description          string
+	Type                 string `yaml:"type" json:"type"`
+	Description          string `yaml:"description,omitempty" json:"description,omitempty"`
 	AdditionalProperties interface{} `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`
-	Properties           interface{} `yaml:",omitempty" json:",omitempty"` // nesting
-	Items                interface{} `yaml:",omitempty" json:",omitempty"`
+	Properties  interface{} `yaml:"properties,omitempty" json:"properties,omitempty"`
+	Items       interface{} `yaml:"items,omitempty" json:"items,omitempty"`
+	//Example							 interface{} `yaml:",omitempty" json:",omitempty"`
 }
 
 type Content map[string]struct {
-	Schema interface{} `yaml:"schema,omitempty"`
+	Schema interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
+	Example interface{} `yaml:"example,omitempty" json:"example,omitempty"`
 }
 
 type Request struct {
-	Description string
-	Content     Content `yaml:",omitempty" json:",omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
 }
 
 type Response struct {
-	Description string
-	Content     Content `yaml:",omitempty" json:",omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
 }
 
 type Param struct {
-	In					string
-	Name        string
-	Description string
-	Required    bool
-	Content     Content `yaml:",omitempty" json:",omitempty"`
-	Schema      interface{} `yaml:",omitempty" json:",omitempty"`
+	In					string `yaml:"in" json:"in"`
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Required    bool `yaml:"required" json:"required"`
+	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
+	Schema interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
 }
 
 type Tag struct {
-	Name string
-	Description string
+	Name string `yaml:"name" json:"name"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
 type Path struct {
-	Summary     string
-	Description string
-	Tags			  []string
-	Parameters  []Param `yaml:",omitempty" json:",omitempty"`
+	Summary     string `yaml:"summary" json:"summary"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Tags			  []string `yaml:"tags" json:"tags"`
+	Parameters  []Param `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Request     Request `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
-	Responses   map[int]Response
+	Responses   map[int]Response `yaml:"responses" json:"responses"`
 }
 
 type Openapi struct {
-	Openapi string
+	Openapi string `yaml:"openapi" json:"openapi"`
 	Info    struct {
-		Title       string
-		Description string
-		Version     string
-	}
-	Paths map[string]map[string]Path
+		Title       string `yaml:"title" json:"title"`
+		Description string `yaml:"description,omitempty" json:"description,omitempty"`
+		Version     string `yaml:"version" json:"version"`
+	} `yaml:"info" json:"info"`
+	Paths map[string]map[string]Path `yaml:"paths" json:"paths"`
+	Tags []Tag `yaml:"tags" json:"tags"`
 }
 
 var oasTypeMap = map[string]string{
@@ -94,18 +98,9 @@ var oasTypeMap = map[string]string{
 	"complex128": "number",
 }
 
-func toSnakeCase(str string) string {
-	var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-	var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	return strings.ToLower(snake)
-}
-
 // convertStructFieldToOas is used to figure out which name to use by reading field tags
 func convertStructFieldToOasField(f reflect.StructField) (r string) {
-	// FIXME currently hardcoded json
-	t := api.CONTENT_TYPE_JSON
+	t := api.CONTENT_TYPE_JSON // FIXME currently hardcoded json
 	r = f.Name
 	switch t {
 	case api.CONTENT_TYPE_JSON:
@@ -114,20 +109,11 @@ func convertStructFieldToOasField(f reflect.StructField) (r string) {
 			r = s[0]
 		}
 		break
-	case api.CONTENT_TYPE_XML:
-		s := strings.Split(f.Tag.Get("xml"), ",")
-		if s[0] != "" {
-			r = s[0]
-		}
-		break
-	case api.CONTENT_TYPE_TEXT:
-		// undecided
-		break
-	default:
+default:
 		break
 	}
 
-	return toSnakeCase(r)
+	return r
 }
 
 func goSliceToOas(i interface{}) interface{} {
@@ -159,11 +145,11 @@ func goStructToOas(i interface{}) interface{} {
 		switch t := oas.(type) {
 			case Property:
 				prop := oas.(Property)
-				prop.Description = field.Tag.Get("oas")// "Testing item Description"
+				prop.Description = field.Tag.Get("oas")
 				oas = prop
 			case Item:
 				item := oas.(Item)
-				item.Description = field.Tag.Get("oas")// "Testing item Description"
+				item.Description = field.Tag.Get("oas")
 				oas = item
 			default:
 				var r = reflect.TypeOf(t)
@@ -317,6 +303,8 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 	oas.Info.Description = apiModel.Description
 	oas.Info.Version = apiModel.Version
 
+	var tags = make(map[string]Tag)
+
 	oas.Paths = make(map[string]map[string]Path)
 	for _, p := range apiModel.GetPaths() {
 
@@ -336,7 +324,7 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 			path.Request = Request{
 				Description: p.Request.Description,
 				Content: Content{
-					contentType: {Schema: schema},
+					contentType: {Schema: schema,Example: p.Request.Schema},
 				},
 			}
 		}
@@ -355,13 +343,17 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 			responses[r.Code] = Response{
 				Description: r.Description,
 				Content: Content{
-					contentType: {Schema: schema},
+					contentType: {Schema: schema, Example: r.Schema},
 				},
 			}
 		}
 		path.Responses = responses
 
 		for _, t := range p.Tags {
+			tags[t.Name] = Tag{
+				Name: t.Name,
+				Description: t.Description,
+			}
 			path.Tags = append(path.Tags, t.Name)
 		}
 
@@ -371,16 +363,32 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 		oas.Paths[p.Url][strings.ToLower(p.Method)] = path
 	}
 
+	for _, tag := range tags {
+		oas.Tags = append(oas.Tags, Tag{
+			Name: tag.Name,
+			Description: tag.Description,
+		})
+	}
+
 	return oas
 }
 
+
 func ToYaml(oas Openapi) (string, error){
+	bytes, err := yaml.Marshal(oas)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+/*func ToYaml(oas Openapi) (string, error){
 	d, err := yaml.Marshal(&oas)
 	if err != nil {
 		return "", err
 	}
 	return string(d), nil
-}
+}*/
 
 func ToJson(oas Openapi) (string, error){
 	d, err := json.Marshal(&oas)
