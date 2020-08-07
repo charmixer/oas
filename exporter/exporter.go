@@ -158,6 +158,11 @@ func goStructToOas(i interface{}) interface{} {
 				item := oas.(Item)
 				item.Description = field.Tag.Get("oas")
 				oas = item
+			case nil:
+				oas = Property{
+					Type: "object",
+					AdditionalProperties: true,
+				}
 			default:
 				var r = reflect.TypeOf(t)
 				panic(fmt.Sprintf("Unhandled type '%v' from goToOas func", r))
