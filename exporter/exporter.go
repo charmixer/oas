@@ -27,9 +27,16 @@ type Property struct {
 	//Example							 interface{} `yaml:",omitempty" json:",omitempty"`
 }
 
+type Example struct {
+	Summary string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Value interface{} `yaml:"value,omitempty" json:"value,omitempty"`
+}
+
 type Content map[string]struct {
 	Schema interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
 	Example interface{} `yaml:"example,omitempty" json:"example,omitempty"`
+	Examples map[string]Example `yaml:"examples,omitempty" json:"examples,omitempty"`
 }
 
 type Request struct {
@@ -61,7 +68,7 @@ type Path struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Tags			  []string `yaml:"tags" json:"tags"`
 	Parameters  []Param `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	Request     Request `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
+	Request     *Request `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
 	Responses   map[int]Response `yaml:"responses" json:"responses"`
 }
 
@@ -251,8 +258,6 @@ func goToOasParameters(i interface{}) (params []Param) {
 		f := valueOf.Field(i)
 		t := typeOf.Field(i)
 
-		//fmt.Printf("=== %#v \n", f)
-
 		tags := make(map[string]string, 3)
 
 		query := t.Tag.Get("query")
@@ -321,10 +326,23 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 
 			schema, _ := goToOas(p.Request.Schema)
 
-			path.Request = Request{
+			examples := make(map[string]Example)
+			for _, e := range p.Request.Examples {
+				example := Example{
+					Summary: e.Summary,
+					Description: e.Description,
+					Value: e.Schema,
+				}
+				examples[fmt.Sprintf("Sample %d", len(examples) + 1)] = example
+			}
+
+			path.Request = &Request{
 				Description: p.Request.Description,
 				Content: Content{
-					contentType: {Schema: schema,Example: p.Request.Schema},
+					contentType: {
+						Schema: schema,
+						Examples: examples,
+					},
 				},
 			}
 		}
@@ -340,10 +358,23 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 
 			schema, _ := goToOas(r.Schema)
 
+			examples := make(map[string]Example)
+			for _, e := range r.Examples {
+				example := Example{
+					Summary: e.Summary,
+					Description: e.Description,
+					Value: e.Schema,
+				}
+				examples[fmt.Sprintf("Sample %d", len(examples) + 1)] = example
+			}
+
 			responses[r.Code] = Response{
 				Description: r.Description,
 				Content: Content{
-					contentType: {Schema: schema, Example: r.Schema},
+					contentType: {
+						Schema: schema,
+						Examples: examples,
+					},
 				},
 			}
 		}
@@ -381,14 +412,6 @@ func ToYaml(oas Openapi) (string, error){
 	}
 	return string(bytes), nil
 }
-
-/*func ToYaml(oas Openapi) (string, error){
-	d, err := yaml.Marshal(&oas)
-	if err != nil {
-		return "", err
-	}
-	return string(d), nil
-}*/
 
 func ToJson(oas Openapi) (string, error){
 	d, err := json.Marshal(&oas)

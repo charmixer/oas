@@ -29,6 +29,12 @@ type Param struct {
 	Schema      interface{}
 }
 
+type Example struct {
+	Summary string
+	Description string
+	Schema interface{}
+}
+
 type Request struct {
 	Description string
 	Required    bool
@@ -38,6 +44,7 @@ type Request struct {
 	Header			interface{}
 	Cookie			interface{}*/
 	Params      interface{}
+	Examples		[]Example
 }
 
 type Response struct {
@@ -46,6 +53,7 @@ type Response struct {
 	Code        int
 	ContentType	string
 	Schema      interface{}
+	Examples		[]Example
 }
 
 type Path struct {
