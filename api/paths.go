@@ -38,11 +38,8 @@ type Example struct {
 type Request struct {
 	Description string
 	Required    bool
-	ContentType	string
+	ContentType	[]string
 	Schema      interface{}
-/*	Query				interface{}
-	Header			interface{}
-	Cookie			interface{}*/
 	Params      interface{}
 	Examples		[]Example
 }
@@ -51,7 +48,7 @@ type Response struct {
 	Description string
 	Required    bool
 	Code        int
-	ContentType	string
+	ContentType	[]string
 	Schema      interface{}
 	Examples		[]Example
 }

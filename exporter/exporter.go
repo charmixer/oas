@@ -33,11 +33,12 @@ type Example struct {
 	Value interface{} `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
-type Content map[string]struct {
+type ContentBody struct {
 	Schema interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
 	Example interface{} `yaml:"example,omitempty" json:"example,omitempty"`
 	Examples map[string]Example `yaml:"examples,omitempty" json:"examples,omitempty"`
 }
+type Content map[string]ContentBody
 
 type Request struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
@@ -324,11 +325,6 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 		}
 
 		if strings.ToLower(p.Method) != "get" {
-			contentType := api.CONTENT_TYPE_JSON
-			if p.Request.ContentType != "" {
-				contentType = p.Request.ContentType
-			}
-
 			schema, _ := goToOas(p.Request.Schema)
 
 			examples := make(map[string]Example)
@@ -341,14 +337,21 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 				examples[fmt.Sprintf("Sample %d", len(examples) + 1)] = example
 			}
 
+			if len(p.Request.ContentType) <= 0 {
+				p.Request.ContentType = []string{api.CONTENT_TYPE_JSON}
+			}
+
+			content := map[string]ContentBody{}
+			for _, c := range p.Request.ContentType {
+				content[c] = ContentBody{
+					Schema: schema,
+					Examples: examples,
+				}
+			}
+
 			path.Request = &Request{
 				Description: p.Request.Description,
-				Content: Content{
-					contentType: {
-						Schema: schema,
-						Examples: examples,
-					},
-				},
+				Content: content,
 			}
 		}
 
@@ -356,11 +359,6 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 
 		responses := make(map[int]Response)
 		for _, r := range p.Responses {
-			contentType := api.CONTENT_TYPE_JSON
-			if r.ContentType != "" {
-				contentType = r.ContentType
-			}
-
 			schema, _ := goToOas(r.Schema)
 
 			examples := make(map[string]Example)
@@ -373,14 +371,21 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 				examples[fmt.Sprintf("Sample %d", len(examples) + 1)] = example
 			}
 
+			if len(r.ContentType) <= 0 {
+				r.ContentType = []string{api.CONTENT_TYPE_JSON}
+			}
+
+			content := map[string]ContentBody{}
+			for _, c := range r.ContentType {
+				content[c] = ContentBody{
+					Schema: schema,
+					Examples: examples,
+				}
+			}
+
 			responses[r.Code] = Response{
 				Description: r.Description,
-				Content: Content{
-					contentType: {
-						Schema: schema,
-						Examples: examples,
-					},
-				},
+				Content: content,
 			}
 		}
 		path.Responses = responses
