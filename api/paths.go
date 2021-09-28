@@ -1,7 +1,7 @@
 package api
 
 import (
-	"net/http"
+_  "net/http"
 )
 
 const (
@@ -40,7 +40,6 @@ type Request struct {
 	Required    bool
 	ContentType	[]string
 	Schema      interface{}
-	Params      interface{}
 	Examples		[]Example
 }
 
@@ -59,8 +58,6 @@ type Path struct {
 	Url         string
 	Method      string
 	Tags				[]Tag
-	Handler     http.HandlerFunc
-	//Params      []Param
 	Request     Request
 	Responses   []Response
 }
@@ -70,14 +67,8 @@ type Tag struct {
 	Description string
 }
 
-func (api *Api) NewPath(method string, url string, handler http.HandlerFunc, path Path, tags []Tag) {
-	path.Tags = tags
+func (api *Api) NewEndpoint(method string, url string, path Path) {
 	path.Method = method
 	path.Url = url
-	path.Handler = handler
 	api.Paths = append(api.Paths, path)
-}
-
-func (api *Api) GetPaths() []Path {
-	return api.Paths
 }

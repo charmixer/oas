@@ -69,7 +69,7 @@ type Path struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Tags			  []string `yaml:"tags" json:"tags"`
 	Parameters  []Param `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	Request     *Request `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
+	Request     Request `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
 	Responses   map[int]Response `yaml:"responses" json:"responses"`
 }
 
@@ -83,6 +83,13 @@ type Openapi struct {
 	Paths map[string]map[string]Path `yaml:"paths" json:"paths"`
 	Tags []Tag `yaml:"tags" json:"tags"`
 }
+
+const (
+	TAG_QUERY = "oas-query"
+	TAG_HEADER = "oas-header"
+	TAG_COOKIE = "oas-cookie"
+	TAG_DESC = "oas-desc"
+)
 
 var oasTypeMap = map[string]string{
 	"bool":       "boolean",
@@ -131,10 +138,10 @@ func goSliceToOas(i interface{}) interface{} {
 
 	oas, _ := goToOas(reflect.Zero(elem).Interface())
 
-	item := Item{}
-	item.Type = "array"
-	item.Items = oas
-	return item
+	return Item{
+		Type: "array",
+		Items: oas,
+	}
 }
 
 func goStructToOas(i interface{}) interface{} {
@@ -148,6 +155,14 @@ func goStructToOas(i interface{}) interface{} {
 		value := v.Field(n)
 
 		oasFieldName := convertStructFieldToOasField(field)
+
+		// skip field if found in params
+		query := field.Tag.Get(TAG_QUERY)
+		header := field.Tag.Get(TAG_HEADER)
+		cookie := field.Tag.Get(TAG_COOKIE)
+		if query != "" || header != "" || cookie != "" {
+			continue
+		}
 
 		oas, _ := goToOas(value.Interface())
 		switch t := oas.(type) {
@@ -266,22 +281,22 @@ func goToOasParameters(i interface{}) (params []Param) {
 
 		tags := make(map[string]string, 3)
 
-		query := t.Tag.Get("query")
+		query := t.Tag.Get(TAG_QUERY)
 		if query != "" && query != "-" {
 			tags["query"] = query
 		}
 
-		header := t.Tag.Get("header")
+		header := t.Tag.Get(TAG_HEADER)
 		if header != "" && header != "-" {
 			tags["header"] = header
 		}
 
-		cookie := t.Tag.Get("cookie")
+		cookie := t.Tag.Get(TAG_COOKIE)
 		if cookie != "" && cookie != "-" {
 			tags["cookie"] = cookie
 		}
 
-		description := t.Tag.Get("oas")
+		description := t.Tag.Get(TAG_DESC)
 
 		for in, name := range tags {
 			param := Param{
@@ -294,6 +309,7 @@ func goToOasParameters(i interface{}) (params []Param) {
 
 			// controlled by result of gotooas
 			if kind == reflect.Struct || kind == reflect.Map {
+				// Describes complex datastructures for parameters like ?filter={"type":"t-shirt","color":"blue"}
 				param.Content = Content{
 					"application/json": {Schema: schema}, // FIXME content type
 				}
@@ -317,7 +333,7 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 	var tags = make(map[string]Tag)
 
 	oas.Paths = make(map[string]map[string]Path)
-	for _, p := range apiModel.GetPaths() {
+	for _, p := range apiModel.Paths {
 
 		path := Path{
 			Summary:     p.Summary,
@@ -349,13 +365,13 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 				}
 			}
 
-			path.Request = &Request{
+			path.Request = Request{
 				Description: p.Request.Description,
 				Content: content,
 			}
 		}
 
-		path.Parameters = goToOasParameters(p.Request.Params)
+		path.Parameters = goToOasParameters(p.Request.Schema)
 
 		responses := make(map[int]Response)
 		for _, r := range p.Responses {
