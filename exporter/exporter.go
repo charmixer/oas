@@ -1,79 +1,85 @@
 package exporter
 
 import (
-	"github.com/charmixer/oas/api"
-	//"gopkg.in/yaml.v2"
-	yaml "github.com/ghodss/yaml"
-	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
-	"fmt"
+
+	"github.com/charmixer/oas/api"
 )
 
 type Item struct {
-	Type        string `yaml:"type" json:"type"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-	Properties  interface{} `yaml:"properties,omitempty" json:"properties,omitempty"`
-	Items       interface{} `yaml:"items,omitempty" json:"items,omitempty"`
+	Type        string                 `yaml:"type" json:"type"`
+	Description string                 `yaml:"description,omitempty" json:"description,omitempty"`
+	Properties  map[string]interface{} `yaml:"properties,omitempty" json:"properties,omitempty"`
+	Items       interface{}            `yaml:"items,omitempty" json:"items,omitempty"`
 	//Example	  	interface{} `yaml:",omitempty" json:",omitempty"`
 }
 
 type Property struct {
-	Type                 string `yaml:"type" json:"type"`
-	Description          string `yaml:"description,omitempty" json:"description,omitempty"`
-	AdditionalProperties interface{} `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`
-	Properties  interface{} `yaml:"properties,omitempty" json:"properties,omitempty"`
-	Items       interface{} `yaml:"items,omitempty" json:"items,omitempty"`
+	Type                 string                 `yaml:"type" json:"type"`
+	Description          string                 `yaml:"description,omitempty" json:"description,omitempty"`
+	AdditionalProperties interface{}            `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`
+	Properties           map[string]interface{} `yaml:"properties,omitempty" json:"properties,omitempty"`
+	Items                interface{}            `yaml:"items,omitempty" json:"items,omitempty"`
 	//Example							 interface{} `yaml:",omitempty" json:",omitempty"`
 }
 
 type Example struct {
-	Summary string `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-	Value interface{} `yaml:"value,omitempty" json:"value,omitempty"`
+	Summary     string      `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Description string      `yaml:"description,omitempty" json:"description,omitempty"`
+	Value       interface{} `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
 type ContentBody struct {
-	Schema interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
-	Example interface{} `yaml:"example,omitempty" json:"example,omitempty"`
+	Schema   interface{}        `yaml:"schema,omitempty" json:"schema,omitempty"`
+	Example  interface{}        `yaml:"example,omitempty" json:"example,omitempty"`
 	Examples map[string]Example `yaml:"examples,omitempty" json:"examples,omitempty"`
 }
 type Content map[string]ContentBody
 
 type Request struct {
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Description string  `yaml:"description,omitempty" json:"description,omitempty"`
 	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
 }
 
 type Response struct {
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Description string  `yaml:"description,omitempty" json:"description,omitempty"`
 	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
 }
 
 type Param struct {
-	In					string `yaml:"in" json:"in"`
-	Name        string `yaml:"name" json:"name"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-	Required    bool `yaml:"required" json:"required"`
-	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
-	Schema interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
+	In          string      `yaml:"in" json:"in"`
+	Name        string      `yaml:"name" json:"name"`
+	Description string      `yaml:"description,omitempty" json:"description,omitempty"`
+	Required    bool        `yaml:"required" json:"required"`
+	Content     Content     `yaml:"content,omitempty" json:"content,omitempty"`
+	Schema      interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
 }
 
 type Tag struct {
-	Name string `yaml:"name" json:"name"`
+	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
 type Path struct {
-	Summary     string `yaml:"summary" json:"summary"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-	Tags			  []string `yaml:"tags" json:"tags"`
-	Parameters  []Param `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	Request     Request `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
+	Summary     string           `yaml:"summary" json:"summary"`
+	Description string           `yaml:"description,omitempty" json:"description,omitempty"`
+	Tags        []string         `yaml:"tags" json:"tags"`
+	Parameters  []Param          `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	Request     Request          `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
 	Responses   map[int]Response `yaml:"responses" json:"responses"`
 }
 
+type oasConfig struct {
+	tagQuery       string
+	tagHeader      string
+	tagCookie      string
+	tagDescription string
+}
+
 type Openapi struct {
+	config  oasConfig
 	Openapi string `yaml:"openapi" json:"openapi"`
 	Info    struct {
 		Title       string `yaml:"title" json:"title"`
@@ -81,15 +87,31 @@ type Openapi struct {
 		Version     string `yaml:"version" json:"version"`
 	} `yaml:"info" json:"info"`
 	Paths map[string]map[string]Path `yaml:"paths" json:"paths"`
-	Tags []Tag `yaml:"tags" json:"tags"`
+	Tags  []Tag                      `yaml:"tags" json:"tags"`
 }
 
-const (
-	TAG_QUERY = "oas-query"
-	TAG_HEADER = "oas-header"
-	TAG_COOKIE = "oas-cookie"
-	TAG_DESC = "oas-desc"
-)
+type OasOption func(e *Openapi)
+
+func WithQueryTag(tag string) OasOption {
+	return func(oas *Openapi) {
+		oas.config.tagQuery = tag
+	}
+}
+func WithHeaderTag(tag string) OasOption {
+	return func(oas *Openapi) {
+		oas.config.tagHeader = tag
+	}
+}
+func WithCookieTag(tag string) OasOption {
+	return func(oas *Openapi) {
+		oas.config.tagCookie = tag
+	}
+}
+func WithDescriptionTag(tag string) OasOption {
+	return func(oas *Openapi) {
+		oas.config.tagDescription = tag
+	}
+}
 
 var oasTypeMap = map[string]string{
 	"bool":       "boolean",
@@ -113,7 +135,7 @@ var oasTypeMap = map[string]string{
 	"complex128": "number",
 }
 
-// convertStructFieldToOas is used to figure out which name to use by reading field tags
+// Used to figure out which name to use by reading field tags
 func convertStructFieldToOasField(f reflect.StructField) (r string) {
 	t := api.CONTENT_TYPE_JSON // FIXME currently hardcoded json
 	r = f.Name
@@ -124,27 +146,27 @@ func convertStructFieldToOasField(f reflect.StructField) (r string) {
 			r = s[0]
 		}
 		break
-default:
+	default:
 		break
 	}
 
 	return r
 }
 
-func goSliceToOas(i interface{}) interface{} {
+func (openapi *Openapi) goSliceToOas(i interface{}) interface{} {
 	s := reflect.TypeOf(i)
 
 	elem := s.Elem()
 
-	oas, _ := goToOas(reflect.Zero(elem).Interface())
+	oas, _ := openapi.goToOas(reflect.Zero(elem).Interface())
 
 	return Item{
-		Type: "array",
+		Type:  "array",
 		Items: oas,
 	}
 }
 
-func goStructToOas(i interface{}) interface{} {
+func (openapi *Openapi) goStructToOas(i interface{}) interface{} {
 	s := reflect.TypeOf(i)
 	v := reflect.ValueOf(i)
 
@@ -154,35 +176,47 @@ func goStructToOas(i interface{}) interface{} {
 		field := s.Field(n)
 		value := v.Field(n)
 
-		oasFieldName := convertStructFieldToOasField(field)
+		// Unexported - skip, note IsExported is ^go1.17
+		if !value.CanInterface() {
+			continue
+		}
 
 		// skip field if found in params
-		query := field.Tag.Get(TAG_QUERY)
-		header := field.Tag.Get(TAG_HEADER)
-		cookie := field.Tag.Get(TAG_COOKIE)
+		query := field.Tag.Get(openapi.config.tagQuery)
+		header := field.Tag.Get(openapi.config.tagHeader)
+		cookie := field.Tag.Get(openapi.config.tagCookie)
 		if query != "" || header != "" || cookie != "" {
 			continue
 		}
 
-		oas, _ := goToOas(value.Interface())
-		switch t := oas.(type) {
-			case Property:
-				prop := oas.(Property)
-				prop.Description = field.Tag.Get("oas")
-				oas = prop
-			case Item:
-				item := oas.(Item)
-				item.Description = field.Tag.Get("oas")
-				oas = item
-			case nil:
-				oas = Property{
-					Type: "object",
-					AdditionalProperties: true,
-				}
-			default:
-				var r = reflect.TypeOf(t)
-				panic(fmt.Sprintf("Unhandled type '%v' from goToOas func", r))
+		// Flatten embedded struct to (makes embedded struct look in docs like its the same)
+		if value.Kind() == reflect.Struct && field.Anonymous {
+			oasStruct := openapi.goStructToOas(value.Interface()).(Property)
+			for name, oasStructProperties := range oasStruct.Properties {
+				p[name] = oasStructProperties
+			}
+			continue
 		}
+
+		oas, _ := openapi.goToOas(value.Interface())
+		switch t := oas.(type) {
+		case Property:
+			prop := oas.(Property)
+			prop.Description = field.Tag.Get(openapi.config.tagDescription)
+			oas = prop
+		case Item:
+			item := oas.(Item)
+			item.Description = field.Tag.Get(openapi.config.tagDescription)
+			oas = item
+		case nil:
+			oas = Property{
+				Type:                 "object",
+				AdditionalProperties: true,
+			}
+		default:
+			panic(fmt.Sprintf("Unhandled type '%v' from goToOas func", reflect.TypeOf(t)))
+		}
+		oasFieldName := convertStructFieldToOasField(field)
 		p[oasFieldName] = oas
 	}
 
@@ -195,12 +229,12 @@ func goStructToOas(i interface{}) interface{} {
 	}
 }
 
-func goMapToOas(i interface{}) (p Property) {
+func (openapi *Openapi) goMapToOas(i interface{}) (p Property) {
 	s := reflect.TypeOf(i)
 
 	elem := s.Elem()
 
-	oas, _ := goToOas(reflect.Zero(elem).Interface())
+	oas, _ := openapi.goToOas(reflect.Zero(elem).Interface())
 	p.Type = "object"
 	p.AdditionalProperties = oas
 
@@ -209,7 +243,7 @@ func goMapToOas(i interface{}) (p Property) {
 	return p
 }
 
-func goPrimitiveToOas(k string, i interface{}) Property {
+func (openapi *Openapi) goPrimitiveToOas(k string, i interface{}) Property {
 	kind, ok := oasTypeMap[k]
 
 	if !ok {
@@ -224,7 +258,7 @@ func goPrimitiveToOas(k string, i interface{}) Property {
 	}
 }
 
-func goToOas(i interface{}) (r interface{}, kind reflect.Kind) {
+func (openapi *Openapi) goToOas(i interface{}) (r interface{}, kind reflect.Kind) {
 
 	t := reflect.TypeOf(i)
 
@@ -244,18 +278,18 @@ func goToOas(i interface{}) (r interface{}, kind reflect.Kind) {
 		    UnsafePointer
 	*/
 	case reflect.Slice:
-		return goSliceToOas(i), t.Kind()
+		return openapi.goSliceToOas(i), t.Kind()
 	case reflect.Struct:
-		return goStructToOas(i), t.Kind()
+		return openapi.goStructToOas(i), t.Kind()
 	case reflect.Map:
-		return goMapToOas(i), t.Kind()
+		return openapi.goMapToOas(i), t.Kind()
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64,
 		reflect.Complex64, reflect.Complex128,
 		reflect.Bool, reflect.String:
-		return goPrimitiveToOas(t.Kind().String(), i), t.Kind()
+		return openapi.goPrimitiveToOas(t.Kind().String(), i), t.Kind()
 
 	default:
 		panic("unknown type " + t.Kind().String())
@@ -263,7 +297,7 @@ func goToOas(i interface{}) (r interface{}, kind reflect.Kind) {
 
 }
 
-func goToOasParameters(i interface{}) (params []Param) {
+func (openapi *Openapi) goToOasParameters(i interface{}) (params []Param) {
 	typeOf := reflect.TypeOf(i)
 	valueOf := reflect.ValueOf(i)
 
@@ -272,7 +306,7 @@ func goToOasParameters(i interface{}) (params []Param) {
 	}
 
 	if typeOf.Kind() != reflect.Struct {
-		panic("Only a struct can be parsed into parameters, "+typeOf.Kind().String()+" ("+typeOf.Name()+") given")
+		panic("Only a struct can be parsed into parameters, " + typeOf.Kind().String() + " (" + typeOf.Name() + ") given")
 	}
 
 	for i := 0; i < valueOf.NumField(); i++ {
@@ -281,31 +315,31 @@ func goToOasParameters(i interface{}) (params []Param) {
 
 		tags := make(map[string]string, 3)
 
-		query := t.Tag.Get(TAG_QUERY)
+		query := t.Tag.Get(openapi.config.tagQuery)
 		if query != "" && query != "-" {
 			tags["query"] = query
 		}
 
-		header := t.Tag.Get(TAG_HEADER)
+		header := t.Tag.Get(openapi.config.tagHeader)
 		if header != "" && header != "-" {
 			tags["header"] = header
 		}
 
-		cookie := t.Tag.Get(TAG_COOKIE)
+		cookie := t.Tag.Get(openapi.config.tagCookie)
 		if cookie != "" && cookie != "-" {
 			tags["cookie"] = cookie
 		}
 
-		description := t.Tag.Get(TAG_DESC)
+		description := t.Tag.Get(openapi.config.tagDescription)
 
 		for in, name := range tags {
 			param := Param{
-				In: in,
-				Name: name,
+				In:          in,
+				Name:        name,
 				Description: description,
 			}
 
-			schema, kind := goToOas(f.Interface())
+			schema, kind := openapi.goToOas(f.Interface())
 
 			// controlled by result of gotooas
 			if kind == reflect.Struct || kind == reflect.Map {
@@ -324,15 +358,27 @@ func goToOasParameters(i interface{}) (params []Param) {
 	return params
 }
 
-func ToOasModel(apiModel api.Api) (oas Openapi) {
-	oas.Openapi = "3.0.3"
-	oas.Info.Title = apiModel.Title
-	oas.Info.Description = apiModel.Description
-	oas.Info.Version = apiModel.Version
+func ToOasModel(apiModel api.Api, options ...OasOption) (openapi Openapi) {
+
+	openapi.config = oasConfig{
+		tagQuery:       "oas-query",
+		tagHeader:      "oas-header",
+		tagCookie:      "oas-cookie",
+		tagDescription: "oas-desc",
+	}
+
+	for _, opt := range options {
+		opt(&openapi)
+	}
+
+	openapi.Openapi = "3.0.3"
+	openapi.Info.Title = apiModel.Title
+	openapi.Info.Description = apiModel.Description
+	openapi.Info.Version = apiModel.Version
 
 	var tags = make(map[string]Tag)
 
-	oas.Paths = make(map[string]map[string]Path)
+	openapi.Paths = make(map[string]map[string]Path)
 	for _, p := range apiModel.Paths {
 
 		path := Path{
@@ -341,16 +387,16 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 		}
 
 		if strings.ToLower(p.Method) != "get" {
-			schema, _ := goToOas(p.Request.Schema)
+			schema, _ := openapi.goToOas(p.Request.Schema)
 
 			examples := make(map[string]Example)
 			for _, e := range p.Request.Examples {
 				example := Example{
-					Summary: e.Summary,
+					Summary:     e.Summary,
 					Description: e.Description,
-					Value: e.Schema,
+					Value:       e.Schema,
 				}
-				examples[fmt.Sprintf("Sample %d", len(examples) + 1)] = example
+				examples[fmt.Sprintf("Sample %d", len(examples)+1)] = example
 			}
 
 			if len(p.Request.ContentType) <= 0 {
@@ -360,31 +406,31 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 			content := map[string]ContentBody{}
 			for _, c := range p.Request.ContentType {
 				content[c] = ContentBody{
-					Schema: schema,
+					Schema:   schema,
 					Examples: examples,
 				}
 			}
 
 			path.Request = Request{
 				Description: p.Request.Description,
-				Content: content,
+				Content:     content,
 			}
 		}
 
-		path.Parameters = goToOasParameters(p.Request.Schema)
+		path.Parameters = openapi.goToOasParameters(p.Request.Schema)
 
 		responses := make(map[int]Response)
 		for _, r := range p.Responses {
-			schema, _ := goToOas(r.Schema)
+			schema, _ := openapi.goToOas(r.Schema)
 
 			examples := make(map[string]Example)
 			for _, e := range r.Examples {
 				example := Example{
-					Summary: e.Summary,
+					Summary:     e.Summary,
 					Description: e.Description,
-					Value: e.Schema,
+					Value:       e.Schema,
 				}
-				examples[fmt.Sprintf("Sample %d", len(examples) + 1)] = example
+				examples[fmt.Sprintf("Sample %d", len(examples)+1)] = example
 			}
 
 			if len(r.ContentType) <= 0 {
@@ -394,55 +440,38 @@ func ToOasModel(apiModel api.Api) (oas Openapi) {
 			content := map[string]ContentBody{}
 			for _, c := range r.ContentType {
 				content[c] = ContentBody{
-					Schema: schema,
+					Schema:   schema,
 					Examples: examples,
 				}
 			}
 
 			responses[r.Code] = Response{
 				Description: r.Description,
-				Content: content,
+				Content:     content,
 			}
 		}
 		path.Responses = responses
 
 		for _, t := range p.Tags {
 			tags[t.Name] = Tag{
-				Name: t.Name,
+				Name:        t.Name,
 				Description: t.Description,
 			}
 			path.Tags = append(path.Tags, t.Name)
 		}
 
-		if _, ok := oas.Paths[p.Url]; !ok {
-			oas.Paths[p.Url] = make(map[string]Path)
+		if _, ok := openapi.Paths[p.Url]; !ok {
+			openapi.Paths[p.Url] = make(map[string]Path)
 		}
-		oas.Paths[p.Url][strings.ToLower(p.Method)] = path
+		openapi.Paths[p.Url][strings.ToLower(p.Method)] = path
 	}
 
 	for _, tag := range tags {
-		oas.Tags = append(oas.Tags, Tag{
-			Name: tag.Name,
+		openapi.Tags = append(openapi.Tags, Tag{
+			Name:        tag.Name,
 			Description: tag.Description,
 		})
 	}
 
-	return oas
-}
-
-
-func ToYaml(oas Openapi) (string, error){
-	bytes, err := yaml.Marshal(oas)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
-}
-
-func ToJson(oas Openapi) (string, error){
-	d, err := json.Marshal(&oas)
-	if err != nil {
-		return "", err
-	}
-	return string(d), nil
+	return openapi
 }

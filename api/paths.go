@@ -1,9 +1,5 @@
 package api
 
-import (
-_  "net/http"
-)
-
 const (
 	CONTENT_TYPE_JSON string = "application/json"
 	CONTENT_TYPE_XML  string = "application/xml"
@@ -21,35 +17,35 @@ type Api struct {
 }
 
 type Param struct {
-	In					string
+	In          string
 	Name        string
 	Description string
 	Required    bool
-	ContentType	string
+	ContentType string
 	Schema      interface{}
 }
 
 type Example struct {
-	Summary string
+	Summary     string
 	Description string
-	Schema interface{}
+	Schema      interface{}
 }
 
 type Request struct {
 	Description string
 	Required    bool
-	ContentType	[]string
+	ContentType []string
 	Schema      interface{}
-	Examples		[]Example
+	Examples    []Example
 }
 
 type Response struct {
 	Description string
 	Required    bool
 	Code        int
-	ContentType	[]string
+	ContentType []string
 	Schema      interface{}
-	Examples		[]Example
+	Examples    []Example
 }
 
 type Path struct {
@@ -57,13 +53,13 @@ type Path struct {
 	Description string
 	Url         string
 	Method      string
-	Tags				[]Tag
+	Tags        []Tag
 	Request     Request
 	Responses   []Response
 }
 
 type Tag struct {
-	Name string
+	Name        string
 	Description string
 }
 
