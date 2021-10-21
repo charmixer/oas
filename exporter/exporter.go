@@ -39,19 +39,29 @@ type ContentBody struct {
 type Content map[string]ContentBody
 
 type Request struct {
-	Description string  `yaml:"description,omitempty" json:"description,omitempty"`
+	Description string  `yaml:"description" json:"description"`
 	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
 }
 
+type HeaderSchema struct {
+	Type   string `yaml:"type" json:"type"`
+	Format string `yaml:"format,omitempty" json:"format,omitempty"`
+}
+
+type ResponseHeader struct {
+	Schema      HeaderSchema `yaml:"schema,omitempty" json:"schema,omitempty"`
+	Description string       `yaml:"description" json:"description"`
+}
 type Response struct {
-	Description string  `yaml:"description,omitempty" json:"description,omitempty"`
-	Content     Content `yaml:"content,omitempty" json:"content,omitempty"`
+	Description string                    `yaml:"description" json:"description"`
+	Headers     map[string]ResponseHeader `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Content     Content                   `yaml:"content,omitempty" json:"content,omitempty"`
 }
 
 type Param struct {
 	In          string      `yaml:"in" json:"in"`
 	Name        string      `yaml:"name" json:"name"`
-	Description string      `yaml:"description,omitempty" json:"description,omitempty"`
+	Description string      `yaml:"description" json:"description"`
 	Required    bool        `yaml:"required" json:"required"`
 	Content     Content     `yaml:"content,omitempty" json:"content,omitempty"`
 	Schema      interface{} `yaml:"schema,omitempty" json:"schema,omitempty"`
@@ -64,7 +74,7 @@ type Tag struct {
 
 type Path struct {
 	Summary     string           `yaml:"summary" json:"summary"`
-	Description string           `yaml:"description,omitempty" json:"description,omitempty"`
+	Description string           `yaml:"description" json:"description"`
 	Tags        []string         `yaml:"tags" json:"tags"`
 	Parameters  []Param          `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Request     Request          `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
@@ -83,7 +93,7 @@ type Openapi struct {
 	Openapi string `yaml:"openapi" json:"openapi"`
 	Info    struct {
 		Title       string `yaml:"title" json:"title"`
-		Description string `yaml:"description,omitempty" json:"description,omitempty"`
+		Description string `yaml:"description" json:"description"`
 		Version     string `yaml:"version" json:"version"`
 	} `yaml:"info" json:"info"`
 	Paths map[string]map[string]Path `yaml:"paths" json:"paths"`
@@ -297,6 +307,50 @@ func (openapi *Openapi) goToOas(i interface{}) (r interface{}, kind reflect.Kind
 
 }
 
+func (openapi *Openapi) goToOasResponseHeaders(i interface{}) (headers map[string]ResponseHeader) {
+	typeOf := reflect.TypeOf(i)
+	valueOf := reflect.ValueOf(i)
+
+	if typeOf == nil {
+		return headers
+	}
+
+	if typeOf.Kind() != reflect.Struct {
+		panic("Only a struct can be parsed into response headers, " + typeOf.Kind().String() + " (" + typeOf.Name() + ") given")
+	}
+
+	headers = make(map[string]ResponseHeader)
+	for i := 0; i < valueOf.NumField(); i++ {
+		f := valueOf.Field(i)
+		t := typeOf.Field(i)
+
+		header := t.Tag.Get(openapi.config.tagHeader)
+		if header == "" || header == "-" {
+			continue
+		}
+
+		description := t.Tag.Get(openapi.config.tagDescription)
+
+		responseHeader := ResponseHeader{
+			Description: description,
+		}
+
+		schema, _ := openapi.goToOas(f.Interface())
+
+		if prop, ok := schema.(Property); ok {
+			responseHeader.Schema = HeaderSchema{
+				Type: prop.Type,
+			}
+		} else {
+			panic("Expected property from response header reflection")
+		}
+
+		headers[header] = responseHeader
+	}
+
+	return headers
+}
+
 func (openapi *Openapi) goToOasParameters(i interface{}) (params []Param) {
 	typeOf := reflect.TypeOf(i)
 	valueOf := reflect.ValueOf(i)
@@ -447,6 +501,7 @@ func ToOasModel(apiModel api.Api, options ...OasOption) (openapi Openapi) {
 
 			responses[r.Code] = Response{
 				Description: r.Description,
+				Headers:     openapi.goToOasResponseHeaders(r.Schema),
 				Content:     content,
 			}
 		}
