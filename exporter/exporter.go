@@ -457,11 +457,21 @@ func ToOasModel(apiModel api.Api, options ...OasOption) (openapi Openapi) {
 				p.Request.ContentType = []string{api.CONTENT_TYPE_JSON}
 			}
 
-			content := map[string]ContentBody{}
-			for _, c := range p.Request.ContentType {
-				content[c] = ContentBody{
-					Schema:   schema,
-					Examples: examples,
+			emptyProperty := false
+			if prop, ok := schema.(Property); ok {
+				if len(prop.Properties) == 0 {
+					emptyProperty = true
+				}
+			}
+
+			var content map[string]ContentBody
+			if !emptyProperty {
+				content := map[string]ContentBody{}
+				for _, c := range p.Request.ContentType {
+					content[c] = ContentBody{
+						Schema:   schema,
+						Examples: examples,
+					}
 				}
 			}
 
@@ -491,11 +501,21 @@ func ToOasModel(apiModel api.Api, options ...OasOption) (openapi Openapi) {
 				r.ContentType = []string{api.CONTENT_TYPE_JSON}
 			}
 
-			content := map[string]ContentBody{}
-			for _, c := range r.ContentType {
-				content[c] = ContentBody{
-					Schema:   schema,
-					Examples: examples,
+			emptyProperty := false
+			if prop, ok := schema.(Property); ok {
+				if len(prop.Properties) == 0 {
+					emptyProperty = true
+				}
+			}
+
+			var content map[string]ContentBody
+			if !emptyProperty {
+				content = map[string]ContentBody{}
+				for _, c := range r.ContentType {
+					content[c] = ContentBody{
+						Schema:   schema,
+						Examples: examples,
+					}
 				}
 			}
 
