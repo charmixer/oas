@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmixer/oas/api"
+	"github.com/charmixer/vdocs"
 )
 
 type Item struct {
@@ -18,6 +19,8 @@ type Item struct {
 
 type Property struct {
 	Type                 string                 `yaml:"type" json:"type"`
+	Format               string                 `yaml:"format,omitempty" json:"format,omitempty"`
+	Required             []string               `yaml:"required,omitempty" json:"required,omitempty"`
 	Description          string                 `yaml:"description,omitempty" json:"description,omitempty"`
 	AdditionalProperties interface{}            `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`
 	Properties           map[string]interface{} `yaml:"properties,omitempty" json:"properties,omitempty"`
@@ -86,6 +89,7 @@ type oasConfig struct {
 	tagHeader      string
 	tagCookie      string
 	tagDescription string
+	tagValidation  string
 }
 
 type Openapi struct {
@@ -120,6 +124,11 @@ func WithCookieTag(tag string) OasOption {
 func WithDescriptionTag(tag string) OasOption {
 	return func(oas *Openapi) {
 		oas.config.tagDescription = tag
+	}
+}
+func WithValidationTag(tag string) OasOption {
+	return func(oas *Openapi) {
+		oas.config.tagValidation = tag
 	}
 }
 
@@ -182,6 +191,7 @@ func (openapi *Openapi) goStructToOas(i interface{}) interface{} {
 
 	p := make(map[string]interface{})
 
+	var required []string
 	for n := 0; n < s.NumField(); n++ {
 		field := s.Field(n)
 		value := v.Field(n)
@@ -199,6 +209,8 @@ func (openapi *Openapi) goStructToOas(i interface{}) interface{} {
 			continue
 		}
 
+		validation := field.Tag.Get(openapi.config.tagValidation)
+
 		// Flatten embedded struct to (makes embedded struct look in docs like its the same)
 		if value.Kind() == reflect.Struct && field.Anonymous {
 			oasStruct := openapi.goStructToOas(value.Interface()).(Property)
@@ -208,11 +220,28 @@ func (openapi *Openapi) goStructToOas(i interface{}) interface{} {
 			continue
 		}
 
+		docs := vdocs.GetFieldDocs(validation)
+
+		oasFieldName := convertStructFieldToOasField(field)
+
 		oas, _ := openapi.goToOas(value.Interface())
 		switch t := oas.(type) {
 		case Property:
 			prop := oas.(Property)
 			prop.Description = field.Tag.Get(openapi.config.tagDescription)
+			if docs.Format != "" {
+				prop.Format = docs.Format
+			}
+			if len(docs.Descriptions) > 0 {
+				breaks := ""
+				if prop.Description != "" {
+					breaks = "<br/><br/>"
+				}
+				prop.Description = fmt.Sprintf("%s%s%s", prop.Description, breaks, strings.Join(docs.Descriptions, "<br/>"))
+			}
+			if docs.Required {
+				required = append(required, oasFieldName)
+			}
 			oas = prop
 		case Item:
 			item := oas.(Item)
@@ -226,7 +255,6 @@ func (openapi *Openapi) goStructToOas(i interface{}) interface{} {
 		default:
 			panic(fmt.Sprintf("Unhandled type '%v' from goToOas func", reflect.TypeOf(t)))
 		}
-		oasFieldName := convertStructFieldToOasField(field)
 		p[oasFieldName] = oas
 	}
 
@@ -236,6 +264,7 @@ func (openapi *Openapi) goStructToOas(i interface{}) interface{} {
 		Type:        "object",
 		Description: s.Name() + " object",
 		Properties:  p,
+		Required:    required,
 	}
 }
 
@@ -419,6 +448,7 @@ func ToOasModel(apiModel api.Api, options ...OasOption) (openapi Openapi) {
 		tagHeader:      "oas-header",
 		tagCookie:      "oas-cookie",
 		tagDescription: "oas-desc",
+		tagValidation:  "oas-validation",
 	}
 
 	for _, opt := range options {
